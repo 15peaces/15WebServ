@@ -67,7 +67,7 @@ namespace inilib
             }
 
             string[] tarr = null;
-            for (int i = group_index[0]; i < group_index[1]; i++)
+            for (int i = group_index[0]; i <= group_index[1]; i++)
             {
                 if (lines[i].StartsWith(key))
                 {

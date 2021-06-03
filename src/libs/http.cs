@@ -26,7 +26,7 @@ namespace _15WebServ
 
         public byte[] HandleRequest(string request)
         {
-            string fn, t;
+            string fn;
             e_httpver ver;
             Dictionary<string, string> req;
 
@@ -39,12 +39,15 @@ namespace _15WebServ
             req = SplitRequest(request);
 
             // check blacklist (will only work if host is sended...)
-            if(req.TryGetValue("Host", out t))
+            if (req.TryGetValue("HOST", out string t))
+            {
+                t = t.Trim(' ');
                 if (blacklist.Contains(t))
                 {
                     console.warning("Blacklisted host '" + t + "' requests '" + fn + "', ignoring...");
                     return new byte[] { };
                 }
+            }
 
             
             switch (ver)
@@ -87,7 +90,7 @@ namespace _15WebServ
             for(i = 0; i < str.Length; i++)
             {
                 str2 = str[i].Split(new char[] { ':' }, 2, StringSplitOptions.None);
-                ret.Add(str2[0], str2[1]);
+                ret.Add(str2[0].ToUpper(), str2[1]);
             }
 
             return ret;

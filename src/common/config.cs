@@ -86,7 +86,7 @@ namespace configs
             values.Add("general.port", ini.ReadIniField(t_pos, "port", "80", 0, 65535));
             values.Add("general.basedir", ini.ReadIniField(t_pos, "basedir", "www").Trim(' '));
             values.Add("general.indexfile", ini.ReadIniField(t_pos, "indexfile", "index.htm").Trim(' '));
-            values.Add("general.blacklist", ini.ReadIniField(t_pos, "blacklist", "").Trim(' '));
+            values.Add("general.blacklist", ini.ReadIniField(t_pos, "blacklist", "test").Trim(' '));
 
             console.status("Configuration file '"+_file+"' read.");
         }

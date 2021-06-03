@@ -2,11 +2,13 @@
 =========
 A simple webserver written in c#.
 
-It doesn't use the default http engline, it uses an own engline written from scratch.
+It doesn't use the default http engine, it uses an own engline written from scratch.
 
 It currently fully supports HTTP/0.9 and, of course HTTP/1.x simple requests (wich are handled the same way as HTTP/0.9 requests).
 
 It is currently in an early state of development!
+
+(Project Page: https://15peaces.com/blog/index.php/15webserv/)
 
 
 Donations

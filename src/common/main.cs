@@ -34,6 +34,7 @@ namespace _15WebServ
             console.status("Reading default configuration file 'config.ini'...");
             conf = new config("config.ini");
             blacklist = _initBlacklist(conf.GetStr("general.blacklist"));
+            console.status("Done reading blacklist, added '" + blacklist.Count + "' entries");
             console.status("Start listening @ TCP port "+ conf.GetInt("general.port") + "...");
             main.server = new TcpListener(IPAddress.Loopback, conf.GetInt("general.port"));
             main.server.Start();
