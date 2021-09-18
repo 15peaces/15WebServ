@@ -11,17 +11,19 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Collections.Generic;
 
 using showmsg;
 using configs;
-using System.Collections.Generic;
+using logging;
 
 namespace _15WebServ
 {
     class WebServ
     {
         TcpListener server;
-        public static config conf;
+        public static Config conf;
+        public static Logging log;
         public static HashSet<string> blacklist;
 
         static void Main(string[] args)
@@ -32,7 +34,10 @@ namespace _15WebServ
             console.message("||   Copyright <c> 2021 15peaces    ||");
             console.message("======================================");
             console.status("Reading default configuration file 'config.ini'...");
-            conf = new config("config.ini");
+            conf = new Config();
+            conf.init("config.ini");
+            console.status("Init logging...");
+            log = new Logging("logging.ini");
             blacklist = _initBlacklist(conf.GetStr("general.blacklist"));
             console.status("Done reading blacklist, added '" + blacklist.Count + "' entries");
             console.status("Start listening @ TCP port "+ conf.GetInt("general.port") + "...");
@@ -70,8 +75,8 @@ namespace _15WebServ
             }
             catch (EndOfStreamException eos)
             {
-                console.warning("Unexpected end of stream.");
-                console.warning("Error caused by " + eos.Message);
+                log.LogMsg("Unexpected end of stream.", console.e_msg_type.MSG_WARNING);
+                log.LogMsg("Error caused by " + eos.Message, console.e_msg_type.MSG_WARNING);
             }
 
             if (msg != "")

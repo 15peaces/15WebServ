@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using logging;
 using showmsg;
 
 namespace _15WebServ
@@ -24,11 +25,14 @@ namespace _15WebServ
             HTTP_10,
         }
 
+        public string[] httpver_str = { "UNKNOWN", "HTTP/0.9", "HTTP/1.0"};
+
+        Dictionary<string, string> req;
+
         public byte[] HandleRequest(string request)
         {
-            string fn;
+            string fn, logmes = "";
             e_httpver ver;
-            Dictionary<string, string> req;
 
             ver = GetHttpVer(request);
             fn = request.Split(' ')[1];
@@ -42,14 +46,29 @@ namespace _15WebServ
             if (req.TryGetValue("HOST", out string t))
             {
                 t = t.Trim(' ');
-                if (blacklist.Contains(t))
+                if (blacklist.Contains(GetValueFromRequest("HOST")))
                 {
-                    console.warning("Blacklisted host '" + t + "' requests '" + fn + "', ignoring...");
+                    log.LogMsg("Blacklisted host '" + t + "' requests '" + fn + "', ignoring...", console.e_msg_type.MSG_WARNING);
                     return new byte[] { };
                 }
             }
 
-            
+            // Log request
+            if (log.conf.GetInt("enable") == 1 && log.conf.GetInt("setting") > 3)
+            {
+                logmes += "GET";
+                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.version))
+                    logmes += " " + httpver_str[(int)ver];
+                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.filename))
+                    logmes += " file: " + fn;
+                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.host))
+                    logmes += " host: " + t;
+                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.user_agent))
+                    logmes += " user_agent: " + GetValueFromRequest("USER-AGENT");
+
+                log.LogMsg(logmes, console.e_msg_type.MSG_NONE);
+            }
+
             switch (ver)
             {
                 case e_httpver.HTTP_09:
@@ -96,6 +115,13 @@ namespace _15WebServ
             return ret;
         }
 
+        private string GetValueFromRequest(string name)
+        {
+            if (req.TryGetValue(name, out string t))
+                return t;
+            return "";
+        }
+
         private byte[] ReadFile(string filename)
         {
             byte[] buf;
@@ -110,8 +136,8 @@ namespace _15WebServ
             }
             catch (Exception e)
             {
-                console.error("The file could not be read:");
-                console.error(e.Message);
+                log.LogMsg("The file could not be read:", console.e_msg_type.MSG_ERROR);
+                log.LogMsg(e.Message, console.e_msg_type.MSG_ERROR);
                 return new byte[] { };
             }
 

@@ -80,6 +80,7 @@
   <ItemGroup>
     <Compile Include="common\config.cs" />
     <Compile Include="common\inilib.cs" />
+    <Compile Include="common\logging.cs" />
     <Compile Include="common\showmsg.cs" />
     <Compile Include="libs\http.cs" />
     <Compile Include="common\main.cs" />

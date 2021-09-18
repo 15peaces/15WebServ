@@ -30,7 +30,7 @@ namespace showmsg
             CL_WHITE = 15
         }
 
-        enum e_msg_type
+        public enum e_msg_type
         {
             MSG_NONE,
             MSG_STATUS,
@@ -43,7 +43,7 @@ namespace showmsg
             MSG_FATALERROR
         }
 
-        static bool _vShowMessage(e_msg_type flag, string message = "")
+        public static bool _vShowMessage(e_msg_type flag, string message = "")
         {
             if (message == "")
             {
