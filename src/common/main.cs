@@ -1,7 +1,7 @@
 ﻿/***********************************************
  *
  *     15WebServ - Webserver       
- *   Copyright © 2021 15peaces
+ *   Copyright © 2021 - 2025 15peaces
  *
  ***********************************************
  * 
@@ -24,24 +24,26 @@ namespace _15WebServ
         TcpListener server;
         public static Config conf;
         public static Logging log;
-        public static HashSet<string> blacklist;
+        public static HashSet<string> blacklist_hosts;
+        public static HashSet<string> blacklist_agents;
 
         static void Main(string[] args)
         {
             WebServ main = new WebServ();
-            console.message("======================================");
-            console.message("||      15WebServ - Webserver       ||");
-            console.message("||   Copyright <c> 2021 15peaces    ||");
-            console.message("======================================");
+            console.message("========================================");
+            console.message("||        15WebServ - Webserver       ||");
+            console.message("|| Copyright <c> 2021 - 2025 15peaces ||");
+            console.message("========================================");
             console.status("Reading default configuration file 'config.ini'...");
             conf = new Config();
             conf.init("config.ini");
             console.status("Init logging...");
             log = new Logging("logging.ini");
-            blacklist = _initBlacklist(conf.GetStr("general.blacklist"));
-            console.status("Done reading blacklist, added '" + blacklist.Count + "' entries");
+            blacklist_hosts = _initBlacklist(conf.GetStr("blacklist.hosts"));
+            blacklist_agents = _initBlacklist(conf.GetStr("blacklist.agents"));
+            console.status("Done reading blacklists, added '" + (blacklist_hosts.Count+blacklist_agents.Count) + "' entries");
             console.status("Start listening @ TCP port "+ conf.GetInt("general.port") + "...");
-            main.server = new TcpListener(IPAddress.Loopback, conf.GetInt("general.port"));
+            main.server = new TcpListener(IPAddress.Any, conf.GetInt("general.port"));
             main.server.Start();
             console.status("Server online, waiting for connections...");
             main._accept_connection();  //accepts incoming connections
@@ -85,6 +87,7 @@ namespace _15WebServ
                 HttpHandler http = new HttpHandler();
                 buf = http.HandleRequest(msg);
                 ns.Write(buf, 0, buf.Length);
+                
             }
 
             ns.Close();
@@ -103,7 +106,7 @@ namespace _15WebServ
                     string[] s = str.Split(',');
 
                     for (int i = 0; i < s.Length; i++)
-                        ret.Add(s[i]);
+                        ret.Add(s[i].Trim(' '));
                 }
                 else
                     ret.Add(str);

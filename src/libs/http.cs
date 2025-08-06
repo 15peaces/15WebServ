@@ -1,13 +1,14 @@
 ﻿/***********************************************
  *
  *     15WebServ - Webserver       
- *   Copyright © 2021 15peaces
+ *   Copyright © 2021 - 2025 15peaces
  *
  ***********************************************
  * 
  * 
  ***********************************************/
 using System;
+using System.Text;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,77 +24,128 @@ namespace _15WebServ
             HTTP_UNKNOWN,
             HTTP_09,
             HTTP_10,
+            HTTP_11,
         }
 
-        public string[] httpver_str = { "UNKNOWN", "HTTP/0.9", "HTTP/1.0"};
+        public string[] httpver_str = { "UNKNOWN", "HTTP/0.9", "HTTP/1.0", "HTTP/1.1"};
 
         Dictionary<string, string> req;
 
         public byte[] HandleRequest(string request)
         {
-            string fn, logmes = "";
+            string s, logmes = "";
+            string[] split_request;
+
             e_httpver ver;
 
             ver = GetHttpVer(request);
-            fn = request.Split(' ')[1];
-
-            if (fn.EndsWith("/")) // change request to default file.
-                fn += conf.GetStr("general.indexfile");
-
-            req = SplitRequest(request);
-
-            // check blacklist (will only work if host is sended...)
-            if (req.TryGetValue("HOST", out string t))
-            {
-                t = t.Trim(' ');
-                if (blacklist.Contains(GetValueFromRequest("HOST")))
-                {
-                    log.LogMsg("Blacklisted host '" + t + "' requests '" + fn + "', ignoring...", console.e_msg_type.MSG_WARNING);
-                    return new byte[] { };
-                }
-            }
-
-            // Log request
-            if (log.conf.GetInt("enable") == 1 && log.conf.GetInt("setting") > 3)
-            {
-                logmes += "GET";
-                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.version))
-                    logmes += " " + httpver_str[(int)ver];
-                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.filename))
-                    logmes += " file: " + fn;
-                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.host))
-                    logmes += " host: " + t;
-                if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.user_agent))
-                    logmes += " user_agent: " + GetValueFromRequest("USER-AGENT");
-
-                log.LogMsg(logmes, console.e_msg_type.MSG_NONE);
-            }
 
             switch (ver)
             {
                 case e_httpver.HTTP_09:
                     console.debug("Connection accepted (HTTP/0.9).");
-                    return (ReadFile(fn));
+                    break;
                 case e_httpver.HTTP_10:
                     console.debug("Connection accepted (HTTP/1.0).");
-                    return (ReadFile(fn));
+                    break;
+                case e_httpver.HTTP_11:
+                    console.debug("Connection accepted (HTTP/1.1).");
+                    break;
                 default:
                     // Ignore other requests, unkown HTTP version.
+                    console.debug("Connection refused (UNKNOWN VERSION).");
                     return new byte[] { };
+            }
+
+            // Split request to 0: command; 1: file; 3: version
+            split_request = request.Split(' ');
+
+            if (split_request[1].EndsWith("/")) // change request to default file.
+                split_request[1] += conf.GetStr("general.indexfile");
+
+            req = SplitRequest(request);
+
+            // check blacklists (will only work if host/user agent is sended...)
+            s = GetValueFromRequest("HOST");
+            if (blacklist_hosts.Contains(s))
+            {
+                log.LogMsg("Blacklisted host '" + s + "' requests '" + split_request[1] + "', ignoring...", console.e_msg_type.MSG_WARNING);
+                return new byte[] { };
+            }
+
+            s = GetValueFromRequest("USER-AGENT");
+            if (blacklist_agents.Contains(s))
+            {
+                log.LogMsg("Blacklisted user-agent '" + s + "' requests '" + split_request[1] + "', ignoring...", console.e_msg_type.MSG_WARNING);
+                return new byte[] { };
+            }
+
+            switch (split_request[0]) // Parse command
+            {
+                case "GET":
+                    byte[] file;
+                    // Log request
+                    if (log.conf.GetInt("enable") == 1 && log.conf.GetInt("setting") > 3)
+                    {
+                        logmes += "GET";
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.version))
+                            logmes += " " + httpver_str[(int)ver];
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.filename))
+                            logmes += " file: " + split_request[1];
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.host))
+                            logmes += " host: " + GetValueFromRequest("HOST");
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.user_agent))
+                            logmes += " user_agent: " + GetValueFromRequest("USER-AGENT");
+
+                        log.LogMsg(logmes, console.e_msg_type.MSG_NONE);
+                    }
+
+                    file = ReadFile(split_request[1]);
+
+                    if (ver == e_httpver.HTTP_09) // Only send error page for 0.9 and stop here...
+                        if ((file == null || file.Count() == 0))
+                            return (ReadFile("../errorpages/404.htm"));
+                        else
+                            return (file);
+
+                    // Create response packet
+                    string res_str = "";
+                    byte[] response;
+
+                    if ((file == null || file.Count() == 0))
+                        return (Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 404 Not Found"));
+                    else
+                    {
+                        res_str += httpver_str[(int)ver]+" 200 OK\n\r";
+                        res_str += "Date: "+DateTime.Now.ToString("ddd, dd MMM yyy HH:mm:ss")+ " GMT\n\r";
+                        res_str += "Server: 15WebServ DEV-BUILD\n\r";
+                        res_str += "Content-Type: text/html\n\r\n\r";
+                        response = Encoding.ASCII.GetBytes(res_str);
+
+                        var ret = new byte[response.Length + file.Length];
+                        response.CopyTo(ret, 0);
+                        file.CopyTo(ret, response.Length);
+                        return (ret);
+                    }
+                case "POST":
+                    return new byte[] { };
+                default:
+                    console.debug("Unknown command '"+ split_request[0] + "'... Connection refused.");
+                    return (Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 400 Bad Request"));
             }
         }
 
         public e_httpver GetHttpVer(string request)
         {
-            if (request.StartsWith("GET"))
-            {
-                if (request.Contains("HTTP/1.0"))  // HTTP/1.0 request.
-                    return e_httpver.HTTP_10;
-                else // HTTP/0.9 request, HTTP/1.0 simple request or not detected.
-                    return e_httpver.HTTP_09;
-            }
 
-            // Unknown HTTP request.
+            if(request.Contains("HTTP/1.0"))
+                return e_httpver.HTTP_10;
+            else if(request.Contains("HTTP/1.1"))
+                return e_httpver.HTTP_11;
+            else if((request.Contains("HTTP/0.9")) || (!request.Contains("HTTP/") && request.StartsWith("GET"))) // HTTP/0.9 request, HTTP/1.0 simple request.
+                return e_httpver.HTTP_09;
+
+            // Unknown HTTP version.
             return e_httpver.HTTP_UNKNOWN;
         }
 
@@ -109,7 +161,7 @@ namespace _15WebServ
             for(i = 0; i < str.Length; i++)
             {
                 str2 = str[i].Split(new char[] { ':' }, 2, StringSplitOptions.None);
-                ret.Add(str2[0].ToUpper(), str2[1]);
+                ret.Add(str2[0].ToUpper(), str2[1].TrimStart(' '));
             }
 
             return ret;
