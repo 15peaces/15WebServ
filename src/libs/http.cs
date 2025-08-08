@@ -35,6 +35,8 @@ namespace _15WebServ
         {
             string s, logmes = "";
             string[] split_request;
+            string res_str = "";
+            byte[] response;
 
             e_httpver ver;
 
@@ -109,9 +111,6 @@ namespace _15WebServ
                             return (file);
 
                     // Create response packet
-                    string res_str = "";
-                    byte[] response;
-
                     if ((file == null || file.Count() == 0))
                         return (Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 404 Not Found"));
                     else
@@ -128,7 +127,6 @@ namespace _15WebServ
                         return (ret);
                     }
                 case "POST":
-                    return new byte[] { };
                 default:
                     console.debug("Unknown command '"+ split_request[0] + "'... Connection refused.");
                     return (Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 400 Bad Request"));
@@ -151,17 +149,17 @@ namespace _15WebServ
 
         private Dictionary<string,string> SplitRequest(string request)
         {
-            int i;
             string[] str, str2;
             Dictionary<string, string> ret = new Dictionary<string, string>();
 
             str = request.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             str = str.Skip(1).ToArray(); // we don't need the first line anymore...
 
-            for(i = 0; i < str.Length; i++)
+            for(int i = 0; i < str.Length; i++)
             {
                 str2 = str[i].Split(new char[] { ':' }, 2, StringSplitOptions.None);
-                ret.Add(str2[0].ToUpper(), str2[1].TrimStart(' '));
+                if(str2.Length>1)
+                    ret.Add(str2[0].ToUpper(), str2[1].TrimStart(' '));
             }
 
             return ret;

@@ -19,8 +19,8 @@ Global
 		{792A6B2F-F283-4505-8AD6-217ECCA67C2A}.Debug|x64.Build.0 = Debug|x64
 		{792A6B2F-F283-4505-8AD6-217ECCA67C2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{792A6B2F-F283-4505-8AD6-217ECCA67C2A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{792A6B2F-F283-4505-8AD6-217ECCA67C2A}.Release|x64.ActiveCfg = Debug|x64
-		{792A6B2F-F283-4505-8AD6-217ECCA67C2A}.Release|x64.Build.0 = Debug|x64
+		{792A6B2F-F283-4505-8AD6-217ECCA67C2A}.Release|x64.ActiveCfg = Release|x64
+		{792A6B2F-F283-4505-8AD6-217ECCA67C2A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
