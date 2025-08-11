@@ -65,7 +65,6 @@ namespace _15WebServ
 
             byte b = 0;
             string msg = "";      //This will contain all the stuff the browser transmitted.
-            byte[] buf;
 
             try
             {
@@ -85,9 +84,7 @@ namespace _15WebServ
             {
                 console.debug(msg);
                 HttpHandler http = new HttpHandler();
-                buf = http.HandleRequest(msg);
-                ns.Write(buf, 0, buf.Length);
-                
+                http.HandleRequest(ns, msg);                
             }
 
             ns.Close();

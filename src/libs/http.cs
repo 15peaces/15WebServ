@@ -12,6 +12,8 @@ using System.Text;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
+
 using logging;
 using showmsg;
 
@@ -29,14 +31,18 @@ namespace _15WebServ
 
         public string[] httpver_str = { "UNKNOWN", "HTTP/0.9", "HTTP/1.0", "HTTP/1.1"};
 
+        byte[] buffer = new byte[] { };
+        NetworkStream http_stream;
+
         Dictionary<string, string> req;
 
-        public byte[] HandleRequest(string request)
+        public void HandleRequest(NetworkStream ns, string request)
         {
             string s, logmes = "";
             string[] split_request;
             string res_str = "";
-            byte[] response;
+
+            http_stream = ns;
 
             e_httpver ver;
 
@@ -56,7 +62,8 @@ namespace _15WebServ
                 default:
                     // Ignore other requests, unkown HTTP version.
                     console.debug("Connection refused (UNKNOWN VERSION).");
-                    return new byte[] { };
+                    _SendBuffer();
+                    return;
             }
 
             // Split request to 0: command; 1: file; 3: version
@@ -72,14 +79,16 @@ namespace _15WebServ
             if (blacklist_hosts.Contains(s))
             {
                 log.LogMsg("Blacklisted host '" + s + "' requests '" + split_request[1] + "', ignoring...", console.e_msg_type.MSG_WARNING);
-                return new byte[] { };
+                _SendBuffer();
+                return;
             }
 
             s = GetValueFromRequest("USER-AGENT");
             if (blacklist_agents.Contains(s))
             {
                 log.LogMsg("Blacklisted user-agent '" + s + "' requests '" + split_request[1] + "', ignoring...", console.e_msg_type.MSG_WARNING);
-                return new byte[] { };
+                _SendBuffer();
+                return;
             }
 
             switch (split_request[0]) // Parse command
@@ -104,32 +113,59 @@ namespace _15WebServ
 
                     file = ReadFile(split_request[1]);
 
-                    if (ver == e_httpver.HTTP_09) // Only send error page for 0.9 and stop here...
-                        if ((file == null || file.Count() == 0))
-                            return (ReadFile("../errorpages/404.htm"));
+                    if ((file == null || file.Count() == 0))
+                    {
+                        if (ver == e_httpver.HTTP_09) // Only send error page for 0.9 and stop here...
+                            buffer = ReadFile("../errorpages/404.htm");
                         else
-                            return (file);
+                            buffer = Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 404 Not Found");
+
+                        _SendBuffer();
+                        return;
+                    }
 
                     // Create response packet
-                    if ((file == null || file.Count() == 0))
-                        return (Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 404 Not Found"));
-                    else
-                    {
-                        res_str += httpver_str[(int)ver]+" 200 OK\n\r";
-                        res_str += "Date: "+DateTime.Now.ToString("ddd, dd MMM yyy HH:mm:ss")+ " GMT\n\r";
-                        res_str += "Server: 15WebServ DEV-BUILD\n\r";
-                        res_str += "Content-Type: text/html\n\r\n\r";
-                        response = Encoding.ASCII.GetBytes(res_str);
+                    res_str += httpver_str[(int)ver]+" 200 OK\n\r";
+                    res_str += "Date: "+DateTime.Now.ToString("ddd, dd MMM yyy HH:mm:ss")+ " GMT\n\r";
+                    res_str += "Server: 15WebServ DEV-BUILD\n\r";
+                    res_str += "Content-Type: text/html\n\r\n\r";
+                    byte[] response = Encoding.ASCII.GetBytes(res_str);
 
-                        var ret = new byte[response.Length + file.Length];
-                        response.CopyTo(ret, 0);
-                        file.CopyTo(ret, response.Length);
-                        return (ret);
-                    }
+                    var ret = new byte[response.Length + file.Length];
+                    response.CopyTo(ret, 0);
+                    file.CopyTo(ret, response.Length);
+                    buffer = ret;
+                    _SendBuffer();
+                    return;
                 case "POST":
+                    // Log request
+                    if (log.conf.GetInt("enable") == 1 && log.conf.GetInt("setting") > 3)
+                    {
+                        logmes += "POST";
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.version))
+                            logmes += " " + httpver_str[(int)ver];
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.filename))
+                            logmes += " command: " + split_request[1];
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.host))
+                            logmes += " host: " + GetValueFromRequest("HOST");
+                        if (((Logging.e_setting)log.conf.GetInt("setting")).HasFlag(Logging.e_setting.user_agent))
+                            logmes += " user_agent: " + GetValueFromRequest("USER-AGENT");
+
+                        log.LogMsg(logmes, console.e_msg_type.MSG_NONE);
+                    }
+                    switch (split_request[1])
+                    {
+                        default:
+                            console.debug("Unknown request '" + split_request[1] + "'... Connection refused.");
+                            buffer = Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 400 Bad Request");
+                            _SendBuffer();
+                            return;
+                    }
                 default:
                     console.debug("Unknown command '"+ split_request[0] + "'... Connection refused.");
-                    return (Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 400 Bad Request"));
+                    buffer = Encoding.ASCII.GetBytes(httpver_str[(int)ver] + " 400 Bad Request");
+                    _SendBuffer();
+                    return;
             }
         }
 
@@ -145,6 +181,15 @@ namespace _15WebServ
 
             // Unknown HTTP version.
             return e_httpver.HTTP_UNKNOWN;
+        }
+
+                /// <summary>
+        /// Send buffer to stream & empty it.
+        /// </summary>
+        private void _SendBuffer()
+        {
+            http_stream.Write(buffer, 0, buffer.Length);
+            buffer = new byte[] { };
         }
 
         private Dictionary<string,string> SplitRequest(string request)
